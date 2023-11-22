@@ -1,17 +1,17 @@
 import numpy as np
 
 
-def generateInvertibleMatrix(n: int):
+def generateInvertibleSymmetricMatrix(n: int):
     A = np.random.randint(5, size=(n, n))
     rowSumSubDiag = np.sum(np.abs(A) , axis=1) - np.abs(np.diag(A))
     # print(rowSumSubDiag) 
     np.fill_diagonal(A, rowSumSubDiag + 1)
-    return A
+    return A + np.transpose(A)
 
 
 def main():
     n = 3
-    mat = generateInvertibleMatrix(n)
+    mat = generateInvertibleSymmetricMatrix(n)
     print("Matrix A:")
     print(mat)
 
