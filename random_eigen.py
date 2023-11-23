@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def generateInvertibleMatrix(n: int):
+def generateInvertibleMatrix(n: int) -> np.ndarray:
     A = np.random.randint(5, size=(n, n))
     rowSumSubDiag = np.sum(np.abs(A) , axis=1) - np.abs(np.diag(A))
     # print(rowSumSubDiag) 
@@ -24,7 +24,9 @@ def main():
     V = eigenvectors
     Diaglmbda = np.diag(eigenvalues)
 
-    matReconstructed = np.matmul(np.matmul(V, Diaglmbda), np.linalg.inv(V))
+    # matReconstructed = np.matmul(np.matmul(V, Diaglmbda), np.linalg.inv(V))
+    matReconstructed = V @ Diaglmbda @ np.linalg.inv(V)
+
 
     print("Reconstructed Matrix: ")
     print(matReconstructed)
