@@ -14,15 +14,10 @@ def main():
     # n = 3
     n = int(input("Enter size: "))
     mat = generateInvertibleSymmetricMatrix(n)
-    print("Matrix A:")
+    print("Matrix Generated:")
     print(mat)
 
     eigenvalues, eigenvectors = np.linalg.eig(mat)
-    # print("Eigenvalues:")
-    # print(eigenvalues)
-    # print("Eigenvectors:")
-    # print(eigenvectors)
-
     V = eigenvectors
     Diaglmbda = np.diag(eigenvalues)
 
@@ -32,7 +27,9 @@ def main():
 
     print("Reconstructed Matrix: ")
     print(matReconstructed)
-    print(np.allclose(mat, matReconstructed))
+
+    print( "all entries same: " + str(np.allclose(mat, matReconstructed)))
+
 
 
 if __name__ == "__main__":
