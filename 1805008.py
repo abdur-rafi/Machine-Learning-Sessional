@@ -31,12 +31,12 @@ class Dense:
 		inputFeatures = inputShape[1]
 		self.features = inputFeatures
 
-		# self.weights = np.random.randn(self.numNodes, inputFeatures)
-		self.weights = np.ones((self.numNodes, inputFeatures))
-		print(self.weights.shape)
-		# self.bias = np.random.randn(self.numNodes)
-		self.bias = np.ones((self.numNodes, 1))
-		print(self.bias.shape)
+		self.weights = np.random.randn(self.numNodes, inputFeatures)
+		# self.weights = np.ones((self.numNodes, inputFeatures))
+		# print(self.weights.shape)
+		self.bias = np.random.randn(self.numNodes, 1)
+		# self.bias = np.ones((self.numNodes, 1))
+		# print(self.bias.shape)
 		self.outputShape = (-1, self.numNodes)
 
 	# x shape: (batch_size, #features)
@@ -174,8 +174,9 @@ class Model:
 		return - yTrue / yPred
 
 	def __backprop(self,yTrue, yPred, optimizer):
-		gradientLossWRTOutput = self.crossEntropyGradient(yTrue, yPred)
-		
+		# gradientLossWRTOutput = self.crossEntropyGradient(yTrue, yPred)
+		gradientLossWRTOutput = self.squaredErrorGradient(yTrue, yPred)
+
 		# print(f"loss grad wrt yhat : {gradientLossWRTOutput.shape}")
 		# wAndg = []
 
@@ -193,6 +194,8 @@ class Model:
 			# print(f"epoch {i} : {loss}")
 			self.__backprop(y, yPred, optimizer)
 
+	def squaredErrorGradient(self, yTrue, yPred):
+		return -2 * (yTrue - yPred)		
 
 
 
@@ -205,29 +208,62 @@ class GradientDescent:
 		return w - self.learningRate * g
 	
 
+def eqn(x):
+	return 2 * (x[0] ** 2) + 3.5 * x[1] + 7
 
 def main():
+	
+	xs = []
+	ys = []
+	for i in range(100):
+		x = np.random.randn(2)
+		xs.append(x)
+		ys.append(eqn(x))
+	x = np.vstack(xs)
+	y = np.vstack(ys)
+
+	print(x.shape)
+	print(y.shape)
+
 
 	
 	model = Model(
 		Input(2),
-		Dense(5),
+		Dense(4),
 		Relu(),
 		Dense(3),
+		Relu(),
+		Dense(1)
+		# Dense(3),
 		# Dense(2),
-		Softmax()
+		# Softmax()
 		# Softmax()
 	)
-	x = np.array([[1, -3], [-1, 1], [5, 6]])
-	y = np.array([[0, 1, 0], [1, 0, 0], [0,0, 1]])
-	print(x.shape)
+	# print(model.predict(x))
+	# x = np.array([[1, -3], [-1, 1], [5, 6]])
+	# y = np.array([[0, 1, 0], [1, 0, 0], [0,0, 1]])
+	# print(x.shape)
 	# yPred = model.predict(x)
 	# print(f"ypred : {yPred}")
 	# print(f"yPred.shape : {yPred.shape}")	
+	xt = np.array([[.5, .36]])
 
-	model.train(x, y, GradientDescent(0.01), 100)
+	# print(model.predict(xt))
+	# print(eqn(xt[0]))
 
-	print(model.predict(x))
+	print(np.sum(np.square(model.predict(x) - y)) / 100)
+
+	model.train(x, y, GradientDescent(0.0001), 1000)
+
+	print(np.sum(np.square(model.predict(x) - y)) / 100)
+
+
+	# print(model.predict(x))
+
+
+	print(model.predict(xt))
+	print(eqn(xt[0]))
+	# print(model.predict(x))
 
 
 
