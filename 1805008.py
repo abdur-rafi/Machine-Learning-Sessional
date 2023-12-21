@@ -12,7 +12,10 @@ class Input:
 		return x
 	
 	def backward(self, gradientLossWRTOutput, _):
-		return gradientLossWRTOutput
+		return gradientLossWRTOutput, None
+	
+	def getWeights(self):
+		return None
 	
 
 
@@ -24,32 +27,49 @@ class Dense:
 		self.numNodes = numNodes
 	
 	# input shape: (batch_size, #features)
-	def initPipeline(self, inputFeatures):
+	def initPipeline(self, inputShape):
+		inputFeatures = inputShape[1]
 		self.features = inputFeatures
 
-		self.weights = np.random.randn(self.numNodes, inputFeatures)
-		self.bias = np.random.randn(self.numNodes)
+		# self.weights = np.random.randn(self.numNodes, inputFeatures)
+		self.weights = np.ones((self.numNodes, inputFeatures))
+		print(self.weights.shape)
+		# self.bias = np.random.randn(self.numNodes)
+		self.bias = np.ones((self.numNodes, 1))
+		print(self.bias.shape)
 		self.outputShape = (-1, self.numNodes)
 
 	# x shape: (batch_size, #features)
 	def forward(self, x):
 		self.x = x
 		self.y = np.dot(self.weights, x.T) + self.bias
+		self.y = self.y.T
 		return self.y
 	
 	# gradientLossWRTOutput shape: (batch_size, #nodes)
 
-	def backward(self, gradientLossWRTOutput,learningRate):
+	def backward(self, gradientLossWRTOutput,optimizer):
 		
 		gradientLossWRTInput = np.dot(gradientLossWRTOutput, self.weights)
+
 		
 		gradientLossWRTWeights = np.dot(gradientLossWRTOutput.T, self.x)
-		gradientLossWRTBias = gradientLossWRTOutput.sum(axis=0)
-		
-		self.weights -= learningRate * gradientLossWRTWeights
-		self.bias -= learningRate * gradientLossWRTBias
+		gradientLossWRTBias = np.sum(gradientLossWRTOutput, axis = 0, keepdims=True).T
 
-		return gradientLossWRTInput
+		# print(f"gradientLossWRTWeights : {gradientLossWRTWeights.shape}")
+		# print(f"gradientLossWRTbias : {gradientLossWRTBias.shape}")
+
+
+		self.weights = optimizer.update(self.weights, gradientLossWRTWeights)
+		self.bias = optimizer.update(self.bias, gradientLossWRTBias)
+
+		# self.weights -= learningRate * gradientLossWRTWeights
+		# self.bias -= learningRate * gradientLossWRTBias
+
+		return gradientLossWRTInput, (gradientLossWRTWeights, gradientLossWRTBias)
+	
+	def getWeights(self):
+		return (self.weights, self.bias)
 		
 
 
@@ -87,20 +107,29 @@ class Softmax:
 		gradientOutputWRTInput[mask] = 0
 		gradientOutputWRTInput = gradientOutputWRTInput + diagElems
 
-		jacobian_matrix = np.zeros((n, m, m))
+		# jacobian_matrix = np.zeros((n, m, m))
 
-		for i in range(n):
-			s = self.forward(self.x[i])
-			for j in range(n):
-				for k in range(n):
-					jacobian_matrix[i, j, k] = s[j] * (int(j == k) - s[k])
+		# for i in range(n):
+		# 	# s = np.exp(self.x[i]) / np.sum(np.exp(self.x[i]), axis=1, keepdims=True)
+		# 	s = self.y[i]
+		# 	for j in range(n):
+		# 		for k in range(n):
+		# 			jacobian_matrix[i, j, k] = s[j] * (int(j == k) - s[k])
 
 
-		print(np.isclose(jacobian_matrix, gradientOutputWRTInput).all())
+		# print(np.isclose(jacobian_matrix, gradientOutputWRTInput).all())
+		# print(f"gradientLossWRTOutput : {np.expand_dims(gradientLossWRTOutput, -1).shape}")
 
-		gradientLossWRTInput = np.multiply(gradientOutputWRTInput, np.expand_dims(gradientLossWRTOutput, -1))
 
-		return gradientLossWRTInput
+		gradientLossWRTInput = np.matmul(gradientOutputWRTInput, np.expand_dims(gradientLossWRTOutput, -1))
+		gradientLossWRTInput = np.squeeze(gradientLossWRTInput)
+
+		# print(f"gradientLossWRTInput : {gradientLossWRTInput.shape}")
+
+		return gradientLossWRTInput, None
+	
+	def getWeights(self):
+		return None
 	
 
 class Relu:
@@ -120,16 +149,19 @@ class Relu:
 	def backward(self, gradientLossWRTOutput, _):
 		gradientOutputWRTInput = np.where(self.x > 0, 1, 0)
 		gradientLossWRTInput = np.multiply(gradientOutputWRTInput, gradientLossWRTOutput)
-		return gradientLossWRTInput
+		return gradientLossWRTInput, None
+	
+	def getWeights(self):
+		return None
 	
 	
 
 class Model:
-	def __init__(self, layers) -> None:
-		for layer in layers:
-			if isinstance(layer, Input):
-				continue
-			layer.initPipeline(layer.inputShape)
+	def __init__(self, *layers) -> None:
+		self.nLayers = len(layers)
+
+		for i in range(1, self.nLayers):
+			layers[i].initPipeline(layers[i-1].outputShape)
 		
 		self.layers = layers
 	
@@ -138,16 +170,66 @@ class Model:
 			x = layer.forward(x)
 		return x
 
-	def backprop(self,yTrue, yPred, learningRate):
-		gradientLossWRTOutput = - yTrue / yPred
+	def crossEntropyGradient(self, yTrue, yPred):
+		return - yTrue / yPred
+
+	def __backprop(self,yTrue, yPred, optimizer):
+		gradientLossWRTOutput = self.crossEntropyGradient(yTrue, yPred)
+		
+		# print(f"loss grad wrt yhat : {gradientLossWRTOutput.shape}")
+		# wAndg = []
+
+		
 		for layer in reversed(self.layers):
-			gradientLossWRTOutput = layer.backward(gradientLossWRTOutput, learningRate)
+			gradientLossWRTOutput, g = layer.backward(gradientLossWRTOutput, optimizer)
+			# wAndg.append((layer.getWeights(), g))
+
+		# return wAndg
+	
+	def train(self, x, y, optimizer, epoch):
+		for i in range(epoch):
+			yPred = self.predict(x)
+			# loss = self.__loss(y, yPred)
+			# print(f"epoch {i} : {loss}")
+			self.__backprop(y, yPred, optimizer)
 
 
+
+
+
+class GradientDescent:
+	def __init__(self, learningRate) -> None:
+		self.learningRate = learningRate
+	
+	def update(self, w, g):
+		return w - self.learningRate * g
 	
 
+
 def main():
-	pass
+
+	
+	model = Model(
+		Input(2),
+		Dense(5),
+		Relu(),
+		Dense(3),
+		# Dense(2),
+		Softmax()
+		# Softmax()
+	)
+	x = np.array([[1, -3], [-1, 1], [5, 6]])
+	y = np.array([[0, 1, 0], [1, 0, 0], [0,0, 1]])
+	print(x.shape)
+	# yPred = model.predict(x)
+	# print(f"ypred : {yPred}")
+	# print(f"yPred.shape : {yPred.shape}")	
+
+	model.train(x, y, GradientDescent(0.01), 100)
+
+	print(model.predict(x))
+
+
 
 if __name__ == "__main__":
 	main()
