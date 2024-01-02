@@ -570,7 +570,7 @@ def getLargeModel(numFeatures, output, inputDropRate=0.2, dropoutRate=0.25):
 
 
 def trainOneModelAllLR(nFeatures, outputs, lrs, epoch, modelFunc, data):
-	inputDropOutRate = 0.25
+	inputDropOutRate = 0.2
 	dropOutRate = 0.25
 	metrics = []
 
