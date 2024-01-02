@@ -429,7 +429,7 @@ def confusionMatrix(model, x, yTrue):
 	return cm
 
 
-def plotConfusionMatrix(cm):
+def plotConfusionMatrix(cm, title="Confusion Matrix"):
 	labels = [chr(i + ord("a")) for i in range(26)]
 	plt.figure(figsize=(14, 14))
 	# sns.set(font_scale=1.2)
@@ -438,7 +438,7 @@ def plotConfusionMatrix(cm):
 	)
 	plt.xlabel("Predicted")
 	plt.ylabel("True")
-	plt.title("Confusion Matrix")
+	plt.title(title)
 	plt.savefig("confusion_matrix.png")
 	# return plt.gcf()
 
@@ -799,7 +799,7 @@ def main():
 	data = prepareData()
 
 	cm = confusionMatrix(model, data.vX, data.vY)
-	plotConfusionMatrix(cm)
+	plotConfusionMatrix(cm, "Validation Confusion Matrix")
 	print(f"Test Accuracy: {acc(model, data.tsX, data.tsY)}")
 	print(f"Test Macro F1: {macroF1(model, data.tsX, data.tsY)}")
 

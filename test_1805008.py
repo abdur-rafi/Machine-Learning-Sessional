@@ -14,9 +14,13 @@ def main():
     data = prepareData()
     tsX = data.tsX
     tsY = data.tsY
-    # predY = model.predict(tsX)
+    predY = model.predict(tsX)
     print(f"Test Accuracy: {acc(model, tsX, tsY)}")
     print(f"Test Macro F1: {macroF1(model, tsX, tsY)}")
+    cm = confusionMatrix(model, data.vX, data.vY)
+    plotConfusionMatrix(cm, "Validation Confusion Matrix")
+    cm = confusionMatrix(model, tsX, tsY)
+    plotConfusionMatrix(cm, "Test Set Confusion Matrix")
 
 if __name__ == '__main__':
     main()
