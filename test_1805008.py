@@ -1,5 +1,5 @@
 import pickle
-from test_1805008 import Data, prepareData, acc, macroF1
+from train_1805008 import Input,Dense,Softmax,Relu,DropOut, Model, Data, prepareData, acc, macroF1
 
 def loadModel(path):
     with open(path, 'rb') as file:
@@ -14,9 +14,9 @@ def main():
     data = prepareData()
     tsX = data.tsX
     tsY = data.tsY
-    predY = model.predict(tsX)
-    print(f"Test Accuracy: {acc(tsY, predY)}")
-    print(f"Test Macro F1: {macroF1(tsY, predY)}")
+    # predY = model.predict(tsX)
+    print(f"Test Accuracy: {acc(model, tsX, tsY)}")
+    print(f"Test Macro F1: {macroF1(model, tsX, tsY)}")
 
 if __name__ == '__main__':
     main()

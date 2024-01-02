@@ -431,10 +431,10 @@ def confusionMatrix(model, x, yTrue):
 
 def plotConfusionMatrix(cm):
 	labels = [chr(i + ord("a")) for i in range(26)]
-	plt.figure(figsize=(8, 6))
+	plt.figure(figsize=(14, 14))
 	# sns.set(font_scale=1.2)
 	sns.heatmap(
-		cm, annot=False, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels
+		cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels
 	)
 	plt.xlabel("Predicted")
 	plt.ylabel("True")
