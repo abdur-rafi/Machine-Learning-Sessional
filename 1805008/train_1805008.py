@@ -694,7 +694,8 @@ def train3Models():
 
 	# slrs = [.001, .0005, .0001, .00005]
 	slrs = [0.005, 0.001, 0.0005, 0.0001]
-	mlrs = [0.005, 0.001, 0.0005, 0.0001]
+	# mlrs = [0.005, 0.001, 0.0005, 0.0001]
+	mlrs = [0.001, 0.0005, 0.0001, 0.00005]
 	llrs = [0.001, 0.0005, 0.0001, 0.00005]
 
 	sEpochs = 10
@@ -720,9 +721,6 @@ def getBestModel(numFeatures, output, inputDropRate=0.2, dropoutRate=0.25):
 		Dense(1024),
 		DropOut(inputDropRate),
 		Relu(),
-		Dense(512),
-		DropOut(dropoutRate),
-		Relu(),
 		Dense(256),
 		DropOut(dropoutRate),
 		Relu(),
@@ -730,6 +728,9 @@ def getBestModel(numFeatures, output, inputDropRate=0.2, dropoutRate=0.25):
 		DropOut(dropoutRate),
 		Relu(),
 		Dense(64),
+		DropOut(dropoutRate),
+		Relu(),
+		Dense(32),
 		DropOut(dropoutRate),
 		Relu(),
 		Dense(output),
@@ -747,9 +748,9 @@ def trainBest():
 	np.random.seed(37)
 
 	bestModel = getBestModel(nFeatures, outputs, 0.2, 0.25)
-	metric1 = trainModel(bestModel, "large", data, optimizer, 10)
+	metric1 = trainModel(bestModel, "large", data, optimizer, 20)
 	metric2 = trainModel(bestModel, "large", data, GradientDescent(0.0001), 10)
-	metric3 = trainModel(bestModel, "large", data, Adam(0.00001), 10)
+	metric3 = trainModel(bestModel, "large", data, GradientDescent(0.00001), 10)
 
 	metric = Metrics("large")
 	metric.tL = metric1.tL + metric2.tL + metric3.tL

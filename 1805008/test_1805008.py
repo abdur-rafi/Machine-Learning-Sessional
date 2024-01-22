@@ -1,5 +1,5 @@
 import pickle
-from train_1805008 import Input,Dense,Softmax,Relu,DropOut, Model, Data, prepareData, acc, macroF1
+from train_1805008 import Input,Dense,Softmax,Relu,DropOut, Model, Data, prepareData, acc, macroF1,confusionMatrix,plotConfusionMatrix
 
 def loadModel(path):
     with open(path, 'rb') as file:
