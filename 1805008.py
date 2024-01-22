@@ -67,7 +67,11 @@ class MultiVariateGaussian:
             self.mean = np.random.rand(dimension, 1)
         self.covariance = covariance
         if covariance is None:
-            self.covariance = np.random.rand(dimension, dimension)
+            while True:
+                self.covariance = np.random.rand(dimension, dimension)
+                det = np.linalg.det(self.covariance)
+                if det > 0:
+                    break
         
 
     def getProbabilityBatch(self, data):
@@ -102,7 +106,9 @@ class MultiVariateGaussian:
         # print("expo", exponent)
         prob = np.exp(exponent)
         # print("prob",prob)
-        prob = prob / np.sqrt(np.linalg.det(self.covariance))
+        det = np.linalg.det(self.covariance)
+        # print("det", det)
+        prob = prob / np.sqrt(det)
         prob = prob / np.power(2 * np.pi, self.dimension / 2)
         return prob[0,0]        
     
@@ -130,8 +136,7 @@ class EM:
     def EStepSingleModel(self, data, index):
 
         model = self.gModels[index]
-        weight = self.weights[index]
-        prob = model.getProbabilityBatch(data) * weight
+        prob = model.getProbabilityBatch(data)
         # prob = prob / np.sum(prob)
         return prob
     
@@ -179,7 +184,7 @@ class EM:
     def OneStep(self, data):
         probVectors = []
         for i, model in enumerate(self.gModels):
-            probVector = self.EStepSingleModel(data, i)
+            probVector = self.EStepSingleModel(data, i) * self.weights[i]
             probVectors.append(probVector)
         probVectors = np.concatenate(probVectors, axis=1)
         assert probVectors.shape == (data.shape[0], self.components)
@@ -189,6 +194,8 @@ class EM:
             probVector = np.expand_dims(probVectors[:, i], axis=1)
             self.MStepSingleModel(data, probVector, i)
             # self.MStepSingleModel(data, probVector, i)
+        
+        print("logLikelihood", self.logLikelihood(data))
     
     def run(self, data, iterations):
         for i in range(iterations):
@@ -213,8 +220,15 @@ class EM:
         plt.show()
     
     def logLikelihood(self, data):
-        logLikelihood = 0
+        probVectors = []
+        for i, model in enumerate(self.gModels):
+            probVector = self.EStepSingleModel(data, i) * self.weights[i]
+            probVectors.append(probVector)
+        probVectors = np.concatenate(probVectors, axis=1)
 
+        logLikelihood = np.sum(np.log(np.sum(probVectors, axis=1)))
+
+        return logLikelihood
 
 
 
@@ -227,7 +241,7 @@ class EM:
 # print(np.sum(arr, axis=1))
 
 
-em = EM(2, 3)
+em = EM(2, 5)
 em.plotAssignments(dataReduced)
-em.run(dataReduced, 100)
+em.run(dataReduced, 200)
 em.plotAssignments(dataReduced)
