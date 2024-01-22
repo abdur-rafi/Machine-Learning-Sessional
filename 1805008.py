@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 np.random.seed(0)
 
 
-dataPath = './3D_data_points.txt'
+dataPath = './6D_data_points.txt'
 
 data = pd.read_csv(dataPath, header=None)
 
@@ -54,9 +54,12 @@ dataReduced = pcaUsingCoVarMatrix(data, components)
 
 print(dataReduced.shape)
 
+
+
 # scatterPlot(dataReduced)
 
 class MultiVariateGaussian:
+
     def __init__(self, dimension, mean, covariance):
         self.dimension = dimension
         self.mean = mean
@@ -74,9 +77,9 @@ class MultiVariateGaussian:
         dataT = np.transpose(data, (0, 2, 1))
         expo = dataT @ np.linalg.inv(self.covariance) @ data
 
-        print("data", data.shape)
-        print("dataT", dataT.shape)
-        print("expo", expo.shape)
+        # print("data", data.shape)
+        # print("dataT", dataT.shape)
+        # print("expo", expo.shape)
 
         assert expo.shape == (data.shape[0], 1, 1)
         expo = expo * -0.5
@@ -118,31 +121,32 @@ class EM:
         self.gModels = []
         for i in range(components):
             self.gModels.append(MultiVariateGaussian(dimension, None, None))
+
+        self.weights = np.random.rand(components, 1) 
+        self.weights = self.weights / np.sum(self.weights)
+        
     
 
-    def EStepSingleModel(self, data, model):
-        # data = data.T
-        
-        # probabilities = []
-        # for j in range(data.shape[0]):
-        #     x = np.expand_dims(data[j], axis=1)
-        #     probabilities.append(model.getProbability(x))
-        
-        # probVector = np.array(probabilities).reshape(data.shape[0], 1)
-        # return probVector
-        return model.getProbabilityBatch(data)
+    def EStepSingleModel(self, data, index):
+
+        model = self.gModels[index]
+        weight = self.weights[index]
+        prob = model.getProbabilityBatch(data) * weight
+        # prob = prob / np.sum(prob)
+        return prob
     
 
-    def MStepSingleModel(self, data, probVector, model):
+    def MStepSingleModel(self, data, probVector, index):
+        model = self.gModels[index]
         # data = data.T
-        print("probVector", probVector.shape)
+        # print("probVector", probVector.shape)
         n = np.sum(probVector)
         # mean = probVector * 
         mean = np.multiply(probVector.T, data.T)
         mean = np.expand_dims(np.sum(mean, axis=1), 1)
         mean = mean / n
 
-        print("mean", mean.shape)
+        # print("mean", mean.shape)
 
         # covariance = np.zeros((self.dimension, self.dimension))
         # for i in range(data.shape[0]):
@@ -160,17 +164,31 @@ class EM:
 
         # print("covariance1", covariance1.shape)
         
-        print("covariance", covariance.shape)
+        # print("covariance", covariance.shape)
         model.updateMeanAndCovariance(mean, covariance)
 
+        index = self.gModels.index(model)
+        self.weights[index] = n / data.shape[0]
+
+        # print("n    ", n)
+    
 
 
         pass
 
     def OneStep(self, data):
-        for model in self.gModels:
-            probVector = self.EStepSingleModel(data, model)
-            self.MStepSingleModel(data, probVector, model)
+        probVectors = []
+        for i, model in enumerate(self.gModels):
+            probVector = self.EStepSingleModel(data, i)
+            probVectors.append(probVector)
+        probVectors = np.concatenate(probVectors, axis=1)
+        assert probVectors.shape == (data.shape[0], self.components)
+        probVectors = probVectors / np.sum(probVectors, axis=1, keepdims=True)
+
+        for i, model in enumerate(self.gModels):
+            probVector = np.expand_dims(probVectors[:, i], axis=1)
+            self.MStepSingleModel(data, probVector, i)
+            # self.MStepSingleModel(data, probVector, i)
     
     def run(self, data, iterations):
         for i in range(iterations):
@@ -183,8 +201,8 @@ class EM:
         for i in range(data.shape[0]):
             x = np.expand_dims(data[i], axis=1)
             probabilities = []
-            for model in self.gModels:
-                probabilities.append(model.getProbability(x))
+            for i,model in enumerate(self.gModels):
+                probabilities.append(model.getProbability(x) * self.weights[i])
             probabilities = np.array(probabilities)
             assignment = np.argmax(probabilities)
             assignments.append(assignment)
@@ -210,6 +228,6 @@ class EM:
 
 
 em = EM(2, 3)
-# em.plotAssignments(dataReduced)
-em.run(dataReduced, 6)
+em.plotAssignments(dataReduced)
+em.run(dataReduced, 100)
 em.plotAssignments(dataReduced)
