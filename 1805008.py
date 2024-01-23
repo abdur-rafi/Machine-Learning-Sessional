@@ -37,9 +37,14 @@ def pcaUsingLib(data, components):
 	pca.fit(data)
 	return pca.transform(data)
 
-def scatterPlot(data):
+def scatterPlot(data, title, imgPath):
 	plt.scatter(data[:, 0], data[:, 1])
-	plt.show()
+	plt.grid(True)
+	plt.title(title)
+	if imgPath is not None:
+		plt.savefig(imgPath)
+	else:
+		plt.show()
 
 
 def pca(data):
@@ -79,6 +84,7 @@ class MultiVariateGaussian:
 		assert expo.shape == (data.shape[0], 1, 1)
 		expo = expo * -0.5
 		expo = np.squeeze(expo, axis=2)
+		expo[expo > 100] = 100
 		prob = np.exp(expo)
 		prob = prob / np.sqrt(np.linalg.det(self.covariance))
 		prob = prob / np.power(2 * np.pi, self.dimension / 2)
@@ -134,43 +140,36 @@ class EM:
 
 	def MStepSingleModel(self, data, probVector, index):
 		model = self.gModels[index]
-		# data = data.T
-		# print("probVector", probVector.shape)
 		n = np.sum(probVector)
-		# mean = probVector * 
 		mean = np.multiply(probVector.T, data.T)
 		mean = np.expand_dims(np.sum(mean, axis=1), 1)
 		mean = mean / n
-
-		# print("mean", mean.shape)
-
-		# covariance = np.zeros((self.dimension, self.dimension))
-		# for i in range(data.shape[0]):
-		#     x = np.expand_dims(data[i], axis=1)
-		#     xSubMean = x - mean
-		#     covariance += probVector[i] * xSubMean @ xSubMean.T
-
 
 		data = np.expand_dims(data, axis=2) - mean
 		dataT = np.transpose(data, (0, 2, 1))
 
 		covariance = data @ dataT
 		covariance = np.multiply(covariance, np.expand_dims(probVector, axis = 2))
-		covariance = np.sum(covariance, axis=0) / n
-
-		# print("covariance1", covariance1.shape)
+		# while True:
+		# 	if np.linalg.det(covariance) > 0:
+		# 		break
+		# 	covariance = np.random.rand(self.dimension, self.dimension)
 		
-		# print("covariance", covariance.shape)
+		covariance = np.sum(covariance, axis=0) / n
+		if np.linalg.det(covariance) <= 0:
+			# print("covariance", covariance)
+			while True:
+				covariance = np.random.rand(self.dimension, self.dimension)
+				det = np.linalg.det(covariance)
+				if det > 0:
+					break
+
 		model.updateMeanAndCovariance(mean, covariance)
+		
 
 		index = self.gModels.index(model)
 		self.weights[index] = n / data.shape[0]
 
-		# print("n    ", n)
-	
-
-
-		pass
 
 	def OneStep(self, data):
 		probVectors = []
@@ -199,7 +198,7 @@ class EM:
 		
 		return logLikelihoods
 
-	def plotAssignments(self, data):
+	def plotAssignments(self, data, title, imgPath):
 		# determine assignments
 		assignments = []
 		for i in range(data.shape[0]):
@@ -214,7 +213,13 @@ class EM:
 		# scatter plot with assignments
 		assignments = np.array(assignments)
 		plt.scatter(data[:, 0], data[:, 1], c=assignments)
-		plt.show()
+		# plt.legend()
+		plt.grid(True)
+		plt.title(title)
+		if imgPath is not None:
+			plt.savefig(imgPath)
+		else:
+			plt.show()
 	
 	def logLikelihood(self, data):
 		probVectors = []
@@ -228,18 +233,20 @@ class EM:
 		return logLikelihood
 
 def bestKCluster(data, K):
-	iteration = 5
+	tryRand = 5
+	maxSteps = 1000
 	bestLogLikelihood = -np.inf
 	bestEM = None
 
-	for _ in range(iteration):
+	for _ in range(tryRand):
 		em = EM(data.shape[1], K)
-		logLikelihoods = em.run(data, 1000)
+		logLikelihoods = em.run(data, maxSteps)
 		# print("logLikelihood", logLikelihood)
 		if logLikelihoods[-1] > bestLogLikelihood:
 			bestLogLikelihood = logLikelihoods[-1]
 			bestEM = em
-	
+		
+		print("logLikelihood", logLikelihoods[-1])
 	return bestEM, bestLogLikelihood
 
 def main():
@@ -249,59 +256,41 @@ def main():
 		
 	data = loadData(path)
 	print(data.shape)
+	title = "Original_Data"
 	if(data.shape[1] > 2):
 		data = pca(data)
+		title = "PCA_Data"
 	else:
+		data = (data - data.mean()) / data.std()
 		data = data.values
 
-	scatterPlot(data)
+	imgPrefix = path.split('.')[0]
+
+	scatterPlot(data, title, imgPrefix + title + ".png")
 
 	print("========== EM Clustering ==========")
 
-	for K in range(3, 8):
+	kVsLogLikelihood = []
+
+	for K in range(3, 9):
 		em, logLikelihood = bestKCluster(data, K)
+		kVsLogLikelihood.append((K, logLikelihood))
 		print("K = ", K, "logLikelihood", logLikelihood)
-		em.plotAssignments(data)
+		em.plotAssignments(data, f"k = {K}", f"{imgPrefix}_k_{K}.png")
+	
+	kVsLogLikelihood = np.array(kVsLogLikelihood)
+	print(kVsLogLikelihood)
+	plt.clf()
+	plt.scatter(kVsLogLikelihood[:, 0], kVsLogLikelihood[:, 1])
+	plt.xlabel("K")
+	plt.ylabel("Log Likelihood")
+	plt.title("K vs Log Likelihood")
 
-
-	# dimension = data.shape[1]
-	# components = 3
-
-	# em = EM(dimension, components)
-	# em.plotAssignments(data)
-	# logLikelihoods = em.run(data, 200)
-	# em.plotAssignments(data)
-
-	# plt.plot(logLikelihoods)
+	plt.grid(True)
 	# plt.show()
+	plt.savefig(f"{imgPrefix}_k_vs_loglikelihood.png")
+	
+
 
 if __name__ == "__main__":
 	main()
-
-
-
-# data = pd.read_csv(dataPath, header=None)
-
-# dataNotNormed = data
-# data = (data - data.mean()) / data.std()
-
-
-
-
-# components = 2
-# # dataReduced = pcaUsingSVD(data, components)
-# dataReduced = pcaUsingCoVarMatrix(data, components)
-# # dataReduced = pcaUsingLib(dataNotNormed, components)
-
-# print(dataReduced.shape)
-
-
-
-# scatterPlot(dataReduced)
-
-
-
-# em = EM(2, 5)
-# em.plotAssignments(dataReduced)
-# em.run(dataReduced, 200)
-# em.plotAssignments(dataReduced)
