@@ -217,17 +217,12 @@ class EM:
 				for fileName in imgFileNames:
 					image = imageio.imread(fileName)
 					writer.append_data(image)
-				# for image in imgs:
-				# 	writer.append_data(image)
 
-			# save gif using all images of img array
-			# imgs[0].save(f"{self.components}_clusters.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=40, loop=0)
 		
 		return logLikelihoods
 
 	def plotAssignments(self, data, title, figsize, imgPath):
 		global colors
-		# determine assignments
 		assignments = []
 		for i in range(data.shape[0]):
 			x = np.expand_dims(data[i], axis=1)
@@ -238,7 +233,6 @@ class EM:
 			assignment = np.argmax(probabilities)
 			assignments.append(colors[(assignment) % len(colors)])
 		
-		# scatter plot with assignments
 		assignments = np.array(assignments)
 		plt.figure(figsize=figsize)
 		plt.scatter(data[:, 0], data[:, 1], c=assignments, s = 1.5)
@@ -246,7 +240,6 @@ class EM:
 		# plt.grid(True)
 		plt.title(title)
 
-		# plot contour of each model
 		for i, model in enumerate(self.gModels):
 			xl = np.min(data[:, 0])
 			xr = np.max(data[:, 0])
@@ -264,12 +257,9 @@ class EM:
 			# print(xy.shape)
 			# print(x, y)
 			# print(x.shape, y.shape)
-			# flatten xy to shape (n, 2	)
 			prob = model.getProbabilityBatch(xy)
 			prob = np.reshape(prob, (x.shape[0], x.shape[1]))
-			# generate n colors
 			# plt.contour(x, y, prob, levels=3, colors=['r', 'g', 'b'][i])
-			# change the line width of each contour
 			plt.contour(x, y, prob,colors = colors[(i) % len(colors)])
 
 		if imgPath is not None:
