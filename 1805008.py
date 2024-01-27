@@ -7,7 +7,7 @@ import os
 
 np.random.seed(5)
 
-
+colors = ['red', 'darkgreen', 'slateblue', 'turquoise', 'darkviolet', 'peru', 'olivedrab', 'steelblue']
 
 def loadData(path):
 	data = pd.read_csv(path, header=None)
@@ -195,7 +195,7 @@ class EM:
 		# print("logLikelihood", self.logLikelihood(data))
 		return self.logLikelihood(data)
 	
-	def run(self, data, iterations, gifName = None):
+	def run(self, data, iterations, contourColor, gifName = None):
 		if not os.path.exists("temp"):
 			os.mkdir("temp")
 		logLikelihoods = []
@@ -224,6 +224,7 @@ class EM:
 		return logLikelihoods
 
 	def plotAssignments(self, data, title, imgPath):
+		global colors
 		# determine assignments
 		assignments = []
 		for i in range(data.shape[0]):
@@ -267,7 +268,7 @@ class EM:
 			# plt.contour(x, y, prob, levels=3, colors=['r', 'g', 'b'][i])
 			# change the line width of each contour
 
-			plt.contour(x, y, prob, linewidth = 1, colors = ['r', 'g', 'b'])
+			plt.contour(x, y, prob,colors = colors[i])
 
 		if imgPath is not None:
 			plt.savefig(imgPath)
@@ -347,6 +348,8 @@ def main():
 	print("========== EM Clustering ==========")
 
 	kVsLogLikelihood = []
+
+	global colors
 
 	for K in range(3, 9):
 		em, logLikelihood = bestKCluster(data, K, not saveFig)
