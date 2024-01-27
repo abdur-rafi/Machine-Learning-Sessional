@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import imageio
+import os
 
 np.random.seed(5)
 
@@ -38,13 +40,14 @@ def pcaUsingLib(data, components):
 	return pca.transform(data)
 
 def scatterPlot(data, title, imgPath):
-	plt.scatter(data[:, 0], data[:, 1])
+	plt.scatter(data[:, 0], data[:, 1],s = 1.5)
 	plt.grid(True)
 	plt.title(title)
 	if imgPath is not None:
 		plt.savefig(imgPath)
-	else:
-		plt.show()
+		plt.close()
+	# else:
+	# 	plt.show()
 
 
 def pca(data):
@@ -65,6 +68,8 @@ class MultiVariateGaussian:
 		if covariance is None:
 			while True:
 				self.covariance = np.random.rand(dimension, dimension)
+				self.covariance = self.covariance + self.covariance.T
+				self.covariance /= 2
 				det = np.linalg.det(self.covariance)
 				if det > 0:
 					break
@@ -160,6 +165,8 @@ class EM:
 			# print("covariance", covariance)
 			while True:
 				covariance = np.random.rand(self.dimension, self.dimension)
+				covariance = covariance + covariance.T
+				covariance /= 2
 				det = np.linalg.det(covariance)
 				if det > 0:
 					break
@@ -188,13 +195,31 @@ class EM:
 		# print("logLikelihood", self.logLikelihood(data))
 		return self.logLikelihood(data)
 	
-	def run(self, data, iterations):
+	def run(self, data, iterations, gifName = None):
+		if not os.path.exists("temp"):
+			os.mkdir("temp")
 		logLikelihoods = []
+		imgFileNames = []
 		for i in range(iterations):
 			logLikelihoods.append(self.OneStep(data))
 			if (len(logLikelihoods) > 1):
-				if (logLikelihoods[-1] == logLikelihoods[-2]):
+				if ( abs(logLikelihoods[-1] - logLikelihoods[-2]) < .00001):
 					break
+			if gifName is not None:
+				fileName = f"temp/{i}.png"
+				self.plotAssignments(data, f"iteration {i}", fileName)
+				imgFileNames.append(fileName)
+			
+		if gifName is not None:
+			with imageio.get_writer(gifName, mode='I') as writer:
+				for fileName in imgFileNames:
+					image = imageio.imread(fileName)
+					writer.append_data(image)
+				# for image in imgs:
+				# 	writer.append_data(image)
+
+			# save gif using all images of img array
+			# imgs[0].save(f"{self.components}_clusters.gif", save_all=True, append_images=imgs[1:], optimize=False, duration=40, loop=0)
 		
 		return logLikelihoods
 
@@ -212,14 +237,42 @@ class EM:
 		
 		# scatter plot with assignments
 		assignments = np.array(assignments)
-		plt.scatter(data[:, 0], data[:, 1], c=assignments)
+		plt.scatter(data[:, 0], data[:, 1], c=assignments, s = 1.5)
 		# plt.legend()
 		plt.grid(True)
 		plt.title(title)
+
+		# plot contour of each model
+		for i, model in enumerate(self.gModels):
+			xl = np.min(data[:, 0])
+			xr = np.max(data[:, 0])
+			yl = np.min(data[:, 1])
+			yr = np.max(data[:, 1])
+
+			gap = 0.01
+			step = .01
+
+			x, y = np.mgrid[xl - gap : xr + gap : step, yl - gap : yr + gap : step]
+			xe = np.expand_dims(x, axis=2)
+			ye = np.expand_dims(y, axis=2)
+			xy = np.concatenate((xe, ye), axis=2)
+			xy = np.reshape(xy, (-1, 2))
+			# print(xy.shape)
+			# print(x, y)
+			# print(x.shape, y.shape)
+			# flatten xy to shape (n, 2	)
+			prob = model.getProbabilityBatch(xy)
+			prob = np.reshape(prob, (x.shape[0], x.shape[1]))
+			# generate n colors
+			# plt.contour(x, y, prob, levels=3, colors=['r', 'g', 'b'][i])
+			# change the line width of each contour
+
+			plt.contour(x, y, prob, linewidth = 1, colors = ['r', 'g', 'b'])
+
 		if imgPath is not None:
 			plt.savefig(imgPath)
-		else:
-			plt.show()
+			plt.close()
+		return plt.gcf()
 	
 	def logLikelihood(self, data):
 		probVectors = []
@@ -232,51 +285,78 @@ class EM:
 
 		return logLikelihood
 
-def bestKCluster(data, K):
+def bestKCluster(data, K, showAssignmentsInEachStep=False):
 	tryRand = 5
-	maxSteps = 1000
+	maxSteps = 20
 	bestLogLikelihood = -np.inf
 	bestEM = None
 
+	print(f"Running EM Algorithm for k = {K}")
 	for _ in range(tryRand):
+		print(f"Attempt {_ + 1}")
 		em = EM(data.shape[1], K)
-		logLikelihoods = em.run(data, maxSteps)
+		gifName = None
+		if showAssignmentsInEachStep:
+			gifName = f"{imgPrefix}_k_{K}_attempt_{_+1}.gif"
+		logLikelihoods = em.run(data, maxSteps, gifName)
 		# print("logLikelihood", logLikelihood)
 		if logLikelihoods[-1] > bestLogLikelihood:
 			bestLogLikelihood = logLikelihoods[-1]
 			bestEM = em
 		
 		print("logLikelihood", logLikelihoods[-1])
+	print(f"best loglikelihood {bestLogLikelihood}")
 	return bestEM, bestLogLikelihood
 
+imgPrefix = None
 def main():
 	path = '3D_data_points.txt'
+	saveFig = True
 	if len(sys.argv) > 1:
 		path = sys.argv[1]
+	
+	if len(sys.argv) > 2:
+		saveFig = sys.argv[2] == "True"
 		
 	data = loadData(path)
+
 	print(data.shape)
+	
 	title = "Original_Data"
 	if(data.shape[1] > 2):
 		data = pca(data)
 		title = "PCA_Data"
 	else:
-		data = (data - data.mean()) / data.std()
+		# data = (data - data.mean()) / data.std()
 		data = data.values
 
+	global imgPrefix
 	imgPrefix = path.split('.')[0]
 
-	scatterPlot(data, title, imgPrefix + title + ".png")
+	print(imgPrefix)
+	
+	fileName = imgPrefix + title + ".png"
+
+	print(fileName)
+
+	if not saveFig:
+		fileName = None
+
+	scatterPlot(data, title, fileName)
 
 	print("========== EM Clustering ==========")
 
 	kVsLogLikelihood = []
 
 	for K in range(3, 9):
-		em, logLikelihood = bestKCluster(data, K)
+		em, logLikelihood = bestKCluster(data, K, not saveFig)
 		kVsLogLikelihood.append((K, logLikelihood))
 		print("K = ", K, "logLikelihood", logLikelihood)
-		em.plotAssignments(data, f"k = {K}", f"{imgPrefix}_k_{K}.png")
+		fileName = f"{imgPrefix}_k_{K}.png"
+		if not saveFig:
+			fileName = None
+		
+		em.plotAssignments(data, f"k = {K}", fileName)
 	
 	kVsLogLikelihood = np.array(kVsLogLikelihood)
 	print(kVsLogLikelihood)
@@ -288,7 +368,9 @@ def main():
 
 	plt.grid(True)
 	# plt.show()
-	plt.savefig(f"{imgPrefix}_k_vs_loglikelihood.png")
+	if saveFig:
+		plt.savefig(f"{imgPrefix}_k_vs_loglikelihood.png")
+		plt.close()
 	
 
 
