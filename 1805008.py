@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import sys
 import imageio
 import os
+import copy
 
 np.random.seed(5)
 
-colors = ['red', 'darkgreen', 'slateblue', 'turquoise', 'darkviolet', 'peru', 'olivedrab', 'steelblue']
+colors = ['darkgreen', 'slateblue', 'turquoise', 'darkviolet', 'peru', 'olivedrab', 'steelblue', 'slategray','red']
 
 def loadData(path):
 	data = pd.read_csv(path, header=None)
@@ -41,7 +42,7 @@ def pcaUsingLib(data, components):
 
 def scatterPlot(data, title, imgPath):
 	plt.scatter(data[:, 0], data[:, 1],s = 1.5)
-	plt.grid(True)
+	# plt.grid(True)
 	plt.title(title)
 	if imgPath is not None:
 		plt.savefig(imgPath)
@@ -195,7 +196,7 @@ class EM:
 		# print("logLikelihood", self.logLikelihood(data))
 		return self.logLikelihood(data)
 	
-	def run(self, data, iterations, contourColor, gifName = None):
+	def run(self, data, iterations, gifName = None, gifFrameAddAtMultipleOf = None):
 		if not os.path.exists("temp"):
 			os.mkdir("temp")
 		logLikelihoods = []
@@ -206,9 +207,10 @@ class EM:
 				if ( abs(logLikelihoods[-1] - logLikelihoods[-2]) < .00001):
 					break
 			if gifName is not None:
-				fileName = f"temp/{i}.png"
-				self.plotAssignments(data, f"iteration {i}", fileName)
-				imgFileNames.append(fileName)
+				if (i + 1) % gifFrameAddAtMultipleOf == 0:
+					fileName = f"temp/{i}.png"
+					self.plotAssignments(data, f"iteration {i + 1}", (6,6), fileName)
+					imgFileNames.append(fileName)
 			
 		if gifName is not None:
 			with imageio.get_writer(gifName, mode='I') as writer:
@@ -223,7 +225,7 @@ class EM:
 		
 		return logLikelihoods
 
-	def plotAssignments(self, data, title, imgPath):
+	def plotAssignments(self, data, title, figsize, imgPath):
 		global colors
 		# determine assignments
 		assignments = []
@@ -234,13 +236,14 @@ class EM:
 				probabilities.append(model.getProbability(x) * self.weights[i])
 			probabilities = np.array(probabilities)
 			assignment = np.argmax(probabilities)
-			assignments.append(assignment)
+			assignments.append(colors[(assignment) % len(colors)])
 		
 		# scatter plot with assignments
 		assignments = np.array(assignments)
+		plt.figure(figsize=figsize)
 		plt.scatter(data[:, 0], data[:, 1], c=assignments, s = 1.5)
 		# plt.legend()
-		plt.grid(True)
+		# plt.grid(True)
 		plt.title(title)
 
 		# plot contour of each model
@@ -267,8 +270,7 @@ class EM:
 			# generate n colors
 			# plt.contour(x, y, prob, levels=3, colors=['r', 'g', 'b'][i])
 			# change the line width of each contour
-
-			plt.contour(x, y, prob,colors = colors[i])
+			plt.contour(x, y, prob,colors = colors[(i) % len(colors)])
 
 		if imgPath is not None:
 			plt.savefig(imgPath)
@@ -286,42 +288,87 @@ class EM:
 
 		return logLikelihood
 
-def bestKCluster(data, K, showAssignmentsInEachStep=False):
+def bestKCluster(data, K, maxIterations, gifFrameAddAtMultipleOf):
+	global figurePrefix
 	tryRand = 5
-	maxSteps = 20
 	bestLogLikelihood = -np.inf
 	bestEM = None
 
+	
+
 	print(f"Running EM Algorithm for k = {K}")
+
 	for _ in range(tryRand):
 		print(f"Attempt {_ + 1}")
 		em = EM(data.shape[1], K)
-		gifName = None
-		if showAssignmentsInEachStep:
-			gifName = f"{imgPrefix}_k_{K}_attempt_{_+1}.gif"
-		logLikelihoods = em.run(data, maxSteps, gifName)
+		initEm = copy.deepcopy(em)
+		logLikelihoods = em.run(data, maxIterations, None)
 		# print("logLikelihood", logLikelihood)
 		if logLikelihoods[-1] > bestLogLikelihood:
 			bestLogLikelihood = logLikelihoods[-1]
-			bestEM = em
+			bestEM = initEm
 		
 		print("logLikelihood", logLikelihoods[-1])
+	
 	print(f"best loglikelihood {bestLogLikelihood}")
+	gifName = None
+	if saveGif:
+		gifName = f"{figurePrefix}_k_{K}.gif"
+	
+	bestEM.run(data, maxIterations, gifName, gifFrameAddAtMultipleOf)
 	return bestEM, bestLogLikelihood
 
-imgPrefix = None
+figurePrefix = None
+saveGif = False
+
 def main():
 	path = '3D_data_points.txt'
-	saveFig = True
 	if len(sys.argv) > 1:
 		path = sys.argv[1]
 	
+	print(f"Input File : {path}")
+	kmn = 3
+	kmx = 8
 	if len(sys.argv) > 2:
-		saveFig = sys.argv[2] == "True"
+		kRange = sys.argv[2]
+		split = kRange.split('-')
+		kmn = int(split[0])
+		kmx = kmn
+		if(len(split) > 1):
+			kmx = int(split[1])
+	
+	print(f"K range : {kmn} - {kmx}")
+	
+	global figurePrefix
+	figurePrefix='./'
+
+	if len(sys.argv) > 3:
+		figurePrefix = sys.argv[3]
+	
+	print(f"Figures will be saved with prefix : {figurePrefix}")
+	
+	maxIterations = 50
+	if len(sys.argv) > 4:
+		maxIterations = int(sys.argv[4])
+
+	
+	print(f"Max iterations : {maxIterations}")
+
+	gifFrameAddAtMultipleOf = 1
+
+	if (len(sys.argv) > 5):
+		gifFrameAddAtMultipleOf = int(sys.argv[5])
+
+	# saveGif = False
 		
+	global saveGif
+
+	if (len(sys.argv) > 6):
+		saveGif = True
+
 	data = loadData(path)
 
-	print(data.shape)
+	print(f"data shape : {data.shape}")
 	
 	title = "Original_Data"
 	if(data.shape[1] > 2):
@@ -331,17 +378,9 @@ def main():
 		# data = (data - data.mean()) / data.std()
 		data = data.values
 
-	global imgPrefix
-	imgPrefix = path.split('.')[0]
 
-	print(imgPrefix)
-	
-	fileName = imgPrefix + title + ".png"
+	fileName =  figurePrefix + title + ".png"
 
-	print(fileName)
-
-	if not saveFig:
-		fileName = None
 
 	scatterPlot(data, title, fileName)
 
@@ -351,15 +390,13 @@ def main():
 
 	global colors
 
-	for K in range(3, 9):
-		em, logLikelihood = bestKCluster(data, K, not saveFig)
+	for K in range(kmn, kmx + 1):
+		em, logLikelihood = bestKCluster(data, K, maxIterations, gifFrameAddAtMultipleOf)
 		kVsLogLikelihood.append((K, logLikelihood))
 		print("K = ", K, "logLikelihood", logLikelihood)
-		fileName = f"{imgPrefix}_k_{K}.png"
-		if not saveFig:
-			fileName = None
+		fileName = f"{figurePrefix}_k_{K}.png"
 		
-		em.plotAssignments(data, f"k = {K}", fileName)
+		em.plotAssignments(data, f"k = {K}", (8,8), fileName)
 	
 	kVsLogLikelihood = np.array(kVsLogLikelihood)
 	print(kVsLogLikelihood)
@@ -371,11 +408,11 @@ def main():
 
 	plt.grid(True)
 	# plt.show()
-	if saveFig:
-		plt.savefig(f"{imgPrefix}_k_vs_loglikelihood.png")
-		plt.close()
+	plt.savefig(f"{figurePrefix}_k_vs_loglikelihood.png")
+	plt.close()
 	
 
 
 if __name__ == "__main__":
+
 	main()
